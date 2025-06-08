@@ -3,7 +3,6 @@ package operator
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 	"time"
 
@@ -370,25 +369,30 @@ func (o *Operator) ProcessNewTaskCreatedLog(
 ) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
 	o.logger.Debug("Received new task", "task", newTaskCreatedLog)
 	o.logger.Info("Received new task",
-		"numberToBeSquared", newTaskCreatedLog.Task.NumberToBeSquared,
 		"taskIndex", newTaskCreatedLog.TaskIndex,
 		"taskCreatedBlock", newTaskCreatedLog.Task.TaskCreatedBlock,
+		"clusterId", newTaskCreatedLog.Task.ClusterId,
+		"rollupId", newTaskCreatedLog.Task.RollupId,
+		"batchNumber", newTaskCreatedLog.Task.BatchNumber,
+		"batchCommitment", newTaskCreatedLog.Task.BatchCommitment,
 		"quorumNumbers", newTaskCreatedLog.Task.QuorumNumbers,
-		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
+		"quorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
-	numberSquared := big.NewInt(0).Exp(newTaskCreatedLog.Task.NumberToBeSquared, big.NewInt(2), nil)
+
+	batchCommitment := newTaskCreatedLog.Task.BatchCommitment
 
 	if o.timesFailing > 0 {
-		rand.Seed(uint64((time.Now().UnixNano())))
+		rand.Seed(uint64(time.Now().UnixNano()))
 		num := rand.Intn(100)
 		if num < o.timesFailing {
-			numberSquared = big.NewInt(908243203843)
-			o.logger.Info("Operator computed wrong task result")
+			batchCommitment = [32]byte{1, 2, 3, 4} // Bogus batchCommitment for failure simulation
+			o.logger.Info("Operator computed wrong batch commitment for testing")
 		}
 	}
+
 	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
-		NumberSquared:      numberSquared,
+		BatchCommitment:    batchCommitment,
 	}
 	return taskResponse
 }

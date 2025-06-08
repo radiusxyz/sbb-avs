@@ -6,9 +6,14 @@ import {IStrategy} from "@eigenlayer/contracts/interfaces/IStrategy.sol";
 
 interface IIncredibleSquaringTaskManager {
     // EVENTS
-    event NewTaskCreated(uint32 indexed taskIndex, Task task);
+    event NewTaskCreated(uint32 indexed taskIndex, Task task, address creator);
 
-    event TaskResponded(TaskResponse taskResponse, TaskResponseMetadata taskResponseMetadata);
+    event TaskResponded(
+        TaskResponse taskResponse,
+        TaskResponseMetadata taskResponseMetadata,
+        Task task,
+        address responder
+    );
 
     event TaskCompleted(uint32 indexed taskIndex);
 
@@ -18,7 +23,12 @@ interface IIncredibleSquaringTaskManager {
 
     // STRUCTS
     struct Task {
-        uint256 numberToBeSquared;
+        // Radius
+        string clusterId;
+        string rollupId;
+        uint256 batchNumber;
+        bytes32 batchCommitment;
+        // Eigenayer
         uint32 taskCreatedBlock;
         // task submitter decides on the criteria for a task to be completed
         // note that this does not mean the task was "correctly" answered (i.e. the number was squared correctly)
@@ -36,7 +46,7 @@ interface IIncredibleSquaringTaskManager {
         // Can be obtained by the operator from the event NewTaskCreated.
         uint32 referenceTaskIndex;
         // This is just the response that the operator has to compute by itself.
-        uint256 numberSquared;
+        bytes32 batchCommitment;
     }
 
     // Extra information related to taskResponse, which is filled inside the contract.
@@ -47,12 +57,32 @@ interface IIncredibleSquaringTaskManager {
         bytes32 hashOfNonSigners;
     }
 
+    struct DistributionParams {
+        uint256 pendingRewardTaskIndex;
+        address[] vaultAddresses;
+        bytes32[] operatorMerkleRoots;
+        uint256[] totalStakerReward;
+        uint256[] totalOperatorReward;
+    }
+
+    struct RollupTaskInfo {
+        uint32 latestTaskNumber;
+        mapping(uint32 => bytes32) batchCommitments;
+        mapping(uint32 => bytes32) taskHashes;
+        mapping(uint32 => bytes32) taskResponses;
+    }
+
+    // event TaskResponded(string clusterId, string rollupId, uint32 referenceTaskIndex, bool response, address responder);
+
     // FUNCTIONS
     // NOTE: this function creates new task.
     function createNewTask(
-        uint256 numberToBeSquared,
+        bytes32 batchCommitment,
         uint32 quorumThresholdPercentage,
-        bytes calldata quorumNumbers
+        bytes calldata quorumNumbers,
+        string calldata clusterId,
+        string calldata rollupId,
+        uint256 batchNumber
     ) external;
 
     /// @notice Returns the current 'taskNumber' for the middleware

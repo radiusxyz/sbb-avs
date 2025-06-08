@@ -6,8 +6,7 @@ import {IncredibleSquaringTaskManager} from "../src/IncredibleSquaringTaskManage
 import "@eigenlayer/contracts/permissions/PauserRegistry.sol";
 import "@eigenlayer/contracts/interfaces/IPauserRegistry.sol";
 import {BLSMockAVSDeployer} from "@eigenlayer-middleware/test/utils/BLSMockAVSDeployer.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract IncredibleSquaringTaskManagerTest is BLSMockAVSDeployer {
     incsqsm.IncredibleSquaringServiceManager sm;
@@ -54,8 +53,15 @@ contract IncredibleSquaringTaskManagerTest is BLSMockAVSDeployer {
 
     function testCreateNewTask() public {
         bytes memory quorumNumbers = new bytes(0);
+        bytes32 batchCommitment = bytes32(0); // or some mock value
+        uint32 quorumThresholdPercentage = 2;
+        string memory clusterId = "mockCluster";
+        string memory rollupId = "mockRollup";
+        uint256 batchNumber = 100;
+
         cheats.prank(generator, generator);
-        tm.createNewTask(2, 100, quorumNumbers);
-        assertEq(tm.latestTaskNum(), 1);
+        tm.createNewTask(batchCommitment, quorumThresholdPercentage, quorumNumbers, clusterId, rollupId, batchNumber);
+
+        assertEq(tm.latestTaskNum(), 1); // adjust this check as needed for your contract logic
     }
 }

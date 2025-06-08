@@ -6,10 +6,8 @@ import "@openzeppelin-upgrades/contracts/access/OwnableUpgradeable.sol";
 import "@eigenlayer/contracts/permissions/Pausable.sol";
 import "@eigenlayer-middleware/src/interfaces/IServiceManager.sol";
 import {BLSApkRegistry} from "@eigenlayer-middleware/src/BLSApkRegistry.sol";
-import {SlashingRegistryCoordinator} from
-    "@eigenlayer-middleware/src/SlashingRegistryCoordinator.sol";
-import {ISlashingRegistryCoordinator} from
-    "@eigenlayer-middleware/src/interfaces/ISlashingRegistryCoordinator.sol";
+import {SlashingRegistryCoordinator} from "@eigenlayer-middleware/src/SlashingRegistryCoordinator.sol";
+import {ISlashingRegistryCoordinator} from "@eigenlayer-middleware/src/interfaces/ISlashingRegistryCoordinator.sol";
 import {BLSSignatureChecker} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
 import {InstantSlasher} from "@eigenlayer-middleware/src/slashers/InstantSlasher.sol";
@@ -35,6 +33,16 @@ contract IncredibleSquaringTaskManager is
     uint32 public constant TASK_CHALLENGE_WINDOW_BLOCK = 100;
     uint256 internal constant _THRESHOLD_DENOMINATOR = 100;
     uint256 public constant WADS_TO_SLASH = 100_000_000_000_000_000; // 10%
+
+    // struct RollupTaskInfo {
+    //     uint32 latestTaskNumber;
+    //     mapping(uint32 => bytes32) batchCommitments;
+    //     mapping(uint32 => bytes32) taskHashes;
+    //     mapping(uint32 => bytes32) taskResponses;
+    // }
+
+    mapping(string => RollupTaskInfo) public rollupTaskInfos;
+    mapping(string => mapping(uint256 => uint256)) batchNumberToTaskNumber;
 
     /* STORAGE */
     // The latest task index
@@ -97,21 +105,34 @@ contract IncredibleSquaringTaskManager is
     /* FUNCTIONS */
     // NOTE: this function creates new task, assigns it a taskId
     function createNewTask(
-        uint256 numberToBeSquared,
+        bytes32 batchCommitment,
         uint32 quorumThresholdPercentage,
-        bytes calldata quorumNumbers
+        bytes calldata quorumNumbers,
+        string calldata clusterId,
+        string calldata rollupId,
+        uint256 batchNumber
     ) external onlyTaskGenerator {
         // create a new task struct
         Task memory newTask;
-        newTask.numberToBeSquared = numberToBeSquared;
-        newTask.taskCreatedBlock = uint32(block.number);
+        // Radius
+        newTask.rollupId = rollupId;
+        newTask.clusterId = clusterId;
+        newTask.batchNumber = batchNumber;
+        newTask.batchCommitment = batchCommitment;
+        // Eigen
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
+        newTask.taskCreatedBlock = uint32(block.number);
 
+        bytes32 taskHash = keccak256(abi.encode(newTask));
+
+        uint32 latestTaskNumber = rollupTaskInfos[rollupId].latestTaskNumber;
+        rollupTaskInfos[rollupId].batchCommitments[latestTaskNumber] = batchCommitment;
+        rollupTaskInfos[rollupId].taskHashes[latestTaskNumber] = taskHash;
+        batchNumberToTaskNumber[rollupId][batchNumber] = latestTaskNumber;
         // store hash of task onchain, emit event, and increase taskNum
-        allTaskHashes[latestTaskNum] = keccak256(abi.encode(newTask));
-        emit NewTaskCreated(latestTaskNum, newTask);
-        latestTaskNum = latestTaskNum + 1;
+        emit NewTaskCreated(latestTaskNumber, newTask, msg.sender);
+        rollupTaskInfos[rollupId].latestTaskNumber = latestTaskNumber + 1;
     }
 
     // NOTE: this function responds to existing tasks.
@@ -123,15 +144,18 @@ contract IncredibleSquaringTaskManager is
         uint32 taskCreatedBlock = task.taskCreatedBlock;
         bytes calldata quorumNumbers = task.quorumNumbers;
         uint32 quorumThresholdPercentage = task.quorumThresholdPercentage;
+        string memory rollupId = task.rollupId;
+
+        uint32 referenceTaskIndex = taskResponse.referenceTaskIndex;
 
         // check that the task is valid, hasn't been responsed yet, and is being responsed in time
         require(
-            keccak256(abi.encode(task)) == allTaskHashes[taskResponse.referenceTaskIndex],
+            keccak256(abi.encode(task)) == rollupTaskInfos[rollupId].taskHashes[referenceTaskIndex],
             "supplied task does not match the one recorded in the contract"
         );
         // some logical checks
         require(
-            allTaskResponses[taskResponse.referenceTaskIndex] == bytes32(0),
+            rollupTaskInfos[rollupId].taskResponses[referenceTaskIndex] == bytes32(0),
             "Aggregator has already responded to the task"
         );
         require(
@@ -144,28 +168,32 @@ contract IncredibleSquaringTaskManager is
         bytes32 message = keccak256(abi.encode(taskResponse));
 
         // check the BLS signature
-        (QuorumStakeTotals memory quorumStakeTotals, bytes32 hashOfNonSigners) =
-            checkSignatures(message, quorumNumbers, taskCreatedBlock, nonSignerStakesAndSignature);
+        (QuorumStakeTotals memory quorumStakeTotals, bytes32 hashOfNonSigners) = checkSignatures(
+            message,
+            quorumNumbers,
+            taskCreatedBlock,
+            nonSignerStakesAndSignature
+        );
 
         // check that signatories own at least a threshold percentage of each quourm
         for (uint256 i = 0; i < quorumNumbers.length; i++) {
             // we don't check that the quorumThresholdPercentages are not >100 because a greater value would trivially fail the check, implying
             // signed stake > total stake
             require(
-                quorumStakeTotals.signedStakeForQuorum[i] * _THRESHOLD_DENOMINATOR
-                    >= quorumStakeTotals.totalStakeForQuorum[i] * uint8(quorumThresholdPercentage),
+                quorumStakeTotals.signedStakeForQuorum[i] * _THRESHOLD_DENOMINATOR >=
+                    quorumStakeTotals.totalStakeForQuorum[i] * uint8(quorumThresholdPercentage),
                 "Signatories do not own at least threshold percentage of a quorum"
             );
         }
 
-        TaskResponseMetadata memory taskResponseMetadata =
-            TaskResponseMetadata(uint32(block.number), hashOfNonSigners);
+        TaskResponseMetadata memory taskResponseMetadata = TaskResponseMetadata(uint32(block.number), hashOfNonSigners);
         // updating the storage with task responsea
-        allTaskResponses[taskResponse.referenceTaskIndex] =
-            keccak256(abi.encode(taskResponse, taskResponseMetadata));
+        rollupTaskInfos[rollupId].taskResponses[referenceTaskIndex] = keccak256(
+            abi.encode(taskResponse, taskResponseMetadata)
+        );
 
         // emitting event
-        emit TaskResponded(taskResponse, taskResponseMetadata);
+        emit TaskResponded(taskResponse, taskResponseMetadata, task, msg.sender);
     }
 
     function taskNumber() external view returns (uint32) {
@@ -178,15 +206,17 @@ contract IncredibleSquaringTaskManager is
         TaskResponseMetadata calldata taskResponseMetadata,
         BN254.G1Point[] memory pubkeysOfNonSigningOperators
     ) external {
+        string memory rollupId = task.rollupId;
+
         uint32 referenceTaskIndex = taskResponse.referenceTaskIndex;
-        uint256 numberToBeSquared = task.numberToBeSquared;
         // some logical checks
         require(
-            allTaskResponses[referenceTaskIndex] != bytes32(0), "Task hasn't been responded to yet"
+            rollupTaskInfos[rollupId].taskResponses[referenceTaskIndex] != bytes32(0),
+            "Task hasn't been responded to yet"
         );
         require(
-            allTaskResponses[referenceTaskIndex]
-                == keccak256(abi.encode(taskResponse, taskResponseMetadata)),
+            rollupTaskInfos[rollupId].taskResponses[referenceTaskIndex] ==
+                keccak256(abi.encode(taskResponse, taskResponseMetadata)),
             "Task response does not match the one recorded in the contract"
         );
         require(
@@ -195,14 +225,13 @@ contract IncredibleSquaringTaskManager is
         );
 
         require(
-            uint32(block.number)
-                <= taskResponseMetadata.taskRespondedBlock + TASK_CHALLENGE_WINDOW_BLOCK,
+            uint32(block.number) <= taskResponseMetadata.taskRespondedBlock + TASK_CHALLENGE_WINDOW_BLOCK,
             "The challenge period for this task has already expired."
         );
 
         // // logic for checking whether challenge is valid or not
-        uint256 actualSquaredOutput = numberToBeSquared * numberToBeSquared;
-        bool isResponseCorrect = (actualSquaredOutput == taskResponse.numberSquared);
+
+        bool isResponseCorrect = (task.batchCommitment == taskResponse.batchCommitment);
         // // if response was correct, no slashing happens so we return
         if (isResponseCorrect == true) {
             emit TaskChallengedUnsuccessfully(referenceTaskIndex, msg.sender);
@@ -210,8 +239,7 @@ contract IncredibleSquaringTaskManager is
         }
 
         // get the list of hash of pubkeys of operators who weren't part of the task response submitted by the aggregator
-        bytes32[] memory hashesOfPubkeysOfNonSigningOperators =
-            new bytes32[](pubkeysOfNonSigningOperators.length);
+        bytes32[] memory hashesOfPubkeysOfNonSigningOperators = new bytes32[](pubkeysOfNonSigningOperators.length);
         for (uint256 i = 0; i < pubkeysOfNonSigningOperators.length; i++) {
             hashesOfPubkeysOfNonSigningOperators[i] = pubkeysOfNonSigningOperators[i].hashG1Point();
         }
@@ -221,19 +249,20 @@ contract IncredibleSquaringTaskManager is
         // currently inlined, as the MiddlewareUtils.computeSignatoryRecordHash function was removed from BLSSignatureChecker
         // in this PR: https://github.com/Layr-Labs/eigenlayer-contracts/commit/c836178bf57adaedff37262dff1def18310f3dce#diff-8ab29af002b60fc80e3d6564e37419017c804ae4e788f4c5ff468ce2249b4386L155-L158
         // TODO(samlaf): contracts team will add this function back in the BLSSignatureChecker, which we should use to prevent potential bugs from code duplication
-        bytes32 signatoryRecordHash =
-            keccak256(abi.encodePacked(task.taskCreatedBlock, hashesOfPubkeysOfNonSigningOperators));
+        bytes32 signatoryRecordHash = keccak256(
+            abi.encodePacked(task.taskCreatedBlock, hashesOfPubkeysOfNonSigningOperators)
+        );
         require(
             signatoryRecordHash == taskResponseMetadata.hashOfNonSigners,
             "The pubkeys of non-signing operators supplied by the challenger are not correct."
         );
 
         // get the address of operators who didn't sign
-        address[] memory addressOfNonSigningOperators =
-            new address[](pubkeysOfNonSigningOperators.length);
+        address[] memory addressOfNonSigningOperators = new address[](pubkeysOfNonSigningOperators.length);
         for (uint256 i = 0; i < pubkeysOfNonSigningOperators.length; i++) {
-            addressOfNonSigningOperators[i] = BLSApkRegistry(address(blsApkRegistry))
-                .pubkeyHashToOperator(hashesOfPubkeysOfNonSigningOperators[i]);
+            addressOfNonSigningOperators[i] = BLSApkRegistry(address(blsApkRegistry)).pubkeyHashToOperator(
+                hashesOfPubkeysOfNonSigningOperators[i]
+            );
         }
 
         // get the list of all operators who were active when the task was initialized
@@ -259,22 +288,25 @@ contract IncredibleSquaringTaskManager is
                     }
                 }
                 if (wasSigningOperator == true) {
-                    OperatorSet memory operatorset =
-                        OperatorSet({avs: serviceManager, id: uint8(task.quorumNumbers[i])});
-                    IStrategy[] memory istrategy = IAllocationManager(allocationManager)
-                        .getStrategiesInOperatorSet(operatorset);
+                    OperatorSet memory operatorset = OperatorSet({
+                        avs: serviceManager,
+                        id: uint8(task.quorumNumbers[i])
+                    });
+                    IStrategy[] memory istrategy = IAllocationManager(allocationManager).getStrategiesInOperatorSet(
+                        operatorset
+                    );
                     uint256[] memory wadsToSlash = new uint256[](istrategy.length);
                     for (uint256 z = 0; z < wadsToSlash.length; z++) {
                         wadsToSlash[z] = WADS_TO_SLASH;
                     }
-                    IAllocationManagerTypes.SlashingParams memory slashingparams =
-                    IAllocationManagerTypes.SlashingParams({
-                        operator: operatorAddress,
-                        operatorSetId: uint8(task.quorumNumbers[i]),
-                        strategies: istrategy,
-                        wadsToSlash: wadsToSlash,
-                        description: "slash_the_operator"
-                    });
+                    IAllocationManagerTypes.SlashingParams memory slashingparams = IAllocationManagerTypes
+                        .SlashingParams({
+                            operator: operatorAddress,
+                            operatorSetId: uint8(task.quorumNumbers[i]),
+                            strategies: istrategy,
+                            wadsToSlash: wadsToSlash,
+                            description: "slash_the_operator"
+                        });
                     InstantSlasher(instantSlasher).fulfillSlashingRequest(slashingparams);
                 }
             }

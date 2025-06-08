@@ -150,20 +150,20 @@ func (c *Challenger) processTaskResponseLog(
 }
 
 func (c *Challenger) callChallengeModule(taskIndex uint32) error {
-	numberToBeSquared := c.tasks[taskIndex].NumberToBeSquared
-	answerInResponse := c.taskResponses[taskIndex].TaskResponse.NumberSquared
-	trueAnswer := numberToBeSquared.Exp(numberToBeSquared, big.NewInt(2), nil)
+	batchCommitment := c.tasks[taskIndex].BatchCommitment
+	answerInResponse := c.taskResponses[taskIndex].TaskResponse.BatchCommitment
+	trueAnswer := batchCommitment
 
 	// checking if the answer in the response submitted by aggregator is correct
-	if trueAnswer.Cmp(answerInResponse) != 0 {
-		c.logger.Info("The number squared is not correct", "expectedAnswer", trueAnswer, "gotAnswer", answerInResponse)
+	if trueAnswer != batchCommitment {
+		c.logger.Info("The batch commitment is not correct", "expectedAnswer", trueAnswer, "gotAnswer", answerInResponse)
 
 		// raise challenge
 		c.raiseChallenge(taskIndex)
 
 		return nil
 	} else {
-		c.logger.Info("The number squared is correct")
+		c.logger.Info("The batch commitment is correct")
 		return types.NoErrorInTaskResponse
 	}
 }
