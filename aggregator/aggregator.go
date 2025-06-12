@@ -32,6 +32,8 @@ const (
 	taskChallengeWindowBlock = 100
 	blockTimeSeconds         = 12 * time.Second
 	avsName                  = "incredible-squaring"
+	staticClusterId          = "my-cluster"
+	staticRollupId           = "my-rollup"
 )
 
 // Aggregator sends tasks (numbers to square) onchain, then listens for operator signed TaskResponses.
@@ -86,6 +88,15 @@ type Aggregator struct {
 	tasksMu               sync.RWMutex
 }
 
+
+func BatchCommitmentFromBatchNumber(batchNumber *big.Int) [32]byte {
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(batchNumber.Bytes()) // Writes the big-endian representation
+	var commitment [32]byte
+	copy(commitment[:], hash.Sum(nil))
+	return commitment
+}
+
 // NewAggregator creates a new Aggregator with the provided config.
 func NewAggregator(c *config.Config) (*Aggregator, error) {
 
@@ -136,8 +147,8 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 				Type: "uint32",
 			},
 			{
-				Name: "numberSquared",
-				Type: "uint256",
+				Name: "batchCommitment",
+				Type: "bytes32",
 			},
 		})
 		if err != nil {
@@ -181,15 +192,12 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	agg.logger.Info("Starting aggregator rpc server.")
 	go agg.startServer(ctx)
 
-	// TODO(soubhik): refactor task generation/sending into a separate function that we can run as goroutine
 	ticker := time.NewTicker(10 * time.Second)
 	agg.logger.Info("Aggregator set to send new task every 10 seconds...")
 	defer ticker.Stop()
-	taskNum := int64(0)
-	// ticker doesn't tick immediately, so we send the first task here
-	// see https://github.com/golang/go/issues/17601
-	_ = agg.sendNewTask(big.NewInt(taskNum))
-	taskNum++
+	batchNumber := int64(0)
+	batchNumber++
+	_ = agg.sendNewTask(big.NewInt(batchNumber))
 
 	for {
 		select {
@@ -199,10 +207,9 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
 			agg.sendAggregatedResponseToContract(blsAggServiceResp)
 		case <-ticker.C:
-			err := agg.sendNewTask(big.NewInt(taskNum))
-			taskNum++
+			err := agg.sendNewTask(big.NewInt(batchNumber))	
+			batchNumber++
 			if err != nil {
-				// we log the errors inside sendNewTask() so here we just continue to the next task
 				continue
 			}
 		}
@@ -255,14 +262,20 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 
 // sendNewTask sends a new task to the task manager contract, and updates the Task dict struct
 // with the information of operators opted into quorum 0 at the block of task creation.
-func (agg *Aggregator) sendNewTask(numToSquare *big.Int) error {
-	agg.logger.Info("Aggregator sending new task", "numberToSquare", numToSquare)
+func (agg *Aggregator) sendNewTask(batchNumber *big.Int) error {
+	agg.logger.Info("Aggregator sending new task", "batchNumber", batchNumber)
 	// Send number to square to the task manager contract
+
+	batchCommitment := BatchCommitmentFromBatchNumber(batchNumber)
+
 	newTask, taskIndex, err := agg.avsWriter.SendNewTaskNumberToSquare(
 		context.Background(),
-		numToSquare,
-		types.QUORUM_THRESHOLD_NUMERATOR,
-		types.QUORUM_NUMBERS,
+		batchCommitment,                           // batchCommitment
+		types.QUORUM_THRESHOLD_NUMERATOR, // quorumThresholdPercentage
+		types.QUORUM_NUMBERS,          // quorumNumbers
+		staticClusterId,               // clusterId
+		staticRollupId,                // rollupId
+		batchNumber,                   // batchNumber
 	)
 	if err != nil {
 		agg.logger.Error("Aggregator failed to send number to square", "err", err)
