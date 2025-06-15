@@ -16,7 +16,7 @@ func AbiEncodeTaskResponse(h *cstaskmanager.IIncredibleSquaringTaskManagerTaskRe
 	// The order here has to match the field ordering of cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
 	taskResponseType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{
-			Name: "referenceTaskIndex",
+			Name: "ReferenceTaskIndex",
 			Type: "uint32",
 		},
 		{

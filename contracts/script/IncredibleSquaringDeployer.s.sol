@@ -13,20 +13,13 @@ import {StrategyBaseTVLLimits} from "@eigenlayer/contracts/strategies/StrategyBa
 import "@eigenlayer/test/mocks/EmptyContract.sol";
 
 import "@eigenlayer-middleware/src/RegistryCoordinator.sol" as regcoord;
-import {
-    IBLSApkRegistry,
-    IIndexRegistry,
-    IStakeRegistry
-} from "@eigenlayer-middleware/src/RegistryCoordinator.sol";
+import {IBLSApkRegistry, IIndexRegistry, IStakeRegistry} from "@eigenlayer-middleware/src/RegistryCoordinator.sol";
 import {BLSApkRegistry} from "@eigenlayer-middleware/src/BLSApkRegistry.sol";
 import {IndexRegistry} from "@eigenlayer-middleware/src/IndexRegistry.sol";
 import {StakeRegistry} from "@eigenlayer-middleware/src/StakeRegistry.sol";
 import "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
 
-import {
-    IncredibleSquaringServiceManager,
-    IServiceManager
-} from "../src/IncredibleSquaringServiceManager.sol";
+import {IncredibleSquaringServiceManager, IServiceManager} from "../src/IncredibleSquaringServiceManager.sol";
 import {IncredibleSquaringTaskManager} from "../src/IncredibleSquaringTaskManager.sol";
 import {IIncredibleSquaringTaskManager} from "../src/IIncredibleSquaringTaskManager.sol";
 import "../src/MockERC20.sol";
@@ -42,6 +35,7 @@ import {IncredibleSquaringDeploymentLib} from "../script/utils/IncredibleSquarin
 import {UpgradeableProxyLib} from "./utils/UpgradeableProxyLib.sol";
 
 import {FundOperator} from "./utils/FundOperator.sol";
+
 // # To deploy and verify our contract
 // forge script script/IncredibleSquaringDeployer.s.sol:IncredibleSquaringDeployer --rpc-url $RPC_URL  --private-key $PRIVATE_KEY --broadcast -vvvv
 
@@ -101,33 +95,36 @@ contract IncredibleSquaringDeployer is Script {
     function run() external {
         // Eigenlayer contracts
         vm.startBroadcast(deployer);
-        IncredibleSquaringDeploymentLib.IncredibleSquaringSetupConfig memory isConfig =
-        IncredibleSquaringDeploymentLib.readIncredibleSquaringConfigJson(
-            "incredible_squaring_config"
-        );
+        IncredibleSquaringDeploymentLib.IncredibleSquaringSetupConfig memory isConfig = IncredibleSquaringDeploymentLib
+            .readIncredibleSquaringConfigJson("incredible_squaring_config");
         configData = CoreDeploymentLib.readDeploymentJson("script/deployments/core/", block.chainid);
 
         erc20Mock = new MockERC20();
-        console.log(address(erc20Mock));
-        FundOperator.fund_operator(address(erc20Mock), isConfig.operator_addr, 15_000e18);
-        FundOperator.fund_operator(address(erc20Mock), isConfig.operator_2_addr, 30_000e18);
-        console.log(isConfig.operator_2_addr);
-        (bool s,) = isConfig.operator_2_addr.call{value: 0.1 ether}("");
-        require(s);
-        incredibleSquaringStrategy =
-            IStrategy(StrategyFactory(configData.strategyFactory).deployNewStrategy(erc20Mock));
+        // console.log(address(erc20Mock));
+        // FundOperator.fund_operator(address(erc20Mock), isConfig.operator_addr, 15_000e18);
+        // FundOperator.fund_operator(address(erc20Mock), isConfig.operator_2_addr, 30_000e18);
+        // console.log(isConfig.operator_2_addr);
+        // (bool s,) = isConfig.operator_2_addr.call{value: 0.1 ether}("");
+        // require(s);
+        incredibleSquaringStrategy = IStrategy(
+            StrategyFactory(configData.strategyFactory).deployNewStrategy(erc20Mock)
+        );
         rewardscoordinator = configData.rewardsCoordinator;
 
         proxyAdmin = UpgradeableProxyLib.deployProxyAdmin();
         require(address(incredibleSquaringStrategy) != address(0));
         incredibleSquaringDeployment = IncredibleSquaringDeploymentLib.deployContracts(
-            proxyAdmin, configData, address(incredibleSquaringStrategy), isConfig, msg.sender
+            proxyAdmin,
+            configData,
+            address(incredibleSquaringStrategy),
+            isConfig,
+            msg.sender
         );
-        console.log("instantSlasher", incredibleSquaringDeployment.slasher);
+        // console.log("instantSlasher", incredibleSquaringDeployment.slasher);
 
-        FundOperator.fund_operator(
-            address(erc20Mock), incredibleSquaringDeployment.incredibleSquaringServiceManager, 1e18
-        );
+        // FundOperator.fund_operator(
+        //     address(erc20Mock), incredibleSquaringDeployment.incredibleSquaringServiceManager, 1e18
+        // );
         incredibleSquaringDeployment.token = address(erc20Mock);
 
         IncredibleSquaringDeploymentLib.writeDeploymentJson(incredibleSquaringDeployment);

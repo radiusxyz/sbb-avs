@@ -17,7 +17,7 @@ CHALLENGER_ECDSA_PRIV_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae78
 CHAINID=31337
 # Make sure to update this if the strategy address changes
 # check in contracts/script/output/${CHAINID}/credible_squaring_avs_deployment_output.json
-STRATEGY_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+STRATEGY_ADDRESS=0x2b961e3959b79326a8e7f64ef0d2d825707669b5
 DEPLOYMENT_FILE=contracts/script/deployments/incredible-squaring/${CHAINID}.json
 CORE_DEPLOYMENT_FILE=contracts/script/deployments/core/${CHAINID}.json
 -----------------------------: ## 
@@ -47,7 +47,9 @@ set-allocation-delay:
 
 set-allocation-delay-and-modify-allocation: set-allocation-delay modify-allocations
 
-deploy-all: deploy-eigenlayer deploy-avs uam-permissions create-quorum
+# deploy-all: deploy-eigenlayer deploy-avs uam-permissions create-quorum
+
+deploy-all: deploy-eigenlayer deploy-avs
 
 bindings: ## generates contract bindings
 	cd contracts && ./generate-go-bindings.sh

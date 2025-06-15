@@ -35,26 +35,26 @@ func (o *Operator) registerOperatorOnStartup(
 	blsKeyPair bls.KeyPair,
 	socket string,
 ) {
-	err := o.RegisterOperatorWithEigenlayer()
-	if err != nil {
-		// This error might only be that the operator was already registered with eigenlayer, so we don't want to fatal
-		o.logger.Error("Error registering operator with eigenlayer", "err", err)
-	} else {
-		o.logger.Info("Registered operator with eigenlayer")
-	}
+	// err := o.RegisterOperatorWithEigenlayer()
+	// if err != nil {
+	// 	// This error might only be that the operator was already registered with eigenlayer, so we don't want to fatal
+	// 	o.logger.Error("Error registering operator with eigenlayer", "err", err)
+	// } else {
+	// 	o.logger.Info("Registered operator with eigenlayer")
+	// }
 
-	// TODO(samlaf): shouldn't hardcode number here
-	// Use SetString for large numbers
-	amount := new(big.Int)
-	amount.SetString("1000000000000000000000", 10) // Base 10
+	// // TODO(samlaf): shouldn't hardcode number here
+	// // Use SetString for large numbers
+	// amount := new(big.Int)
+	// amount.SetString("1000000000000000000000", 10) // Base 10
 
-	err = o.DepositIntoStrategy(mockTokenStrategyAddr, amount)
-	if err != nil {
-		o.logger.Fatal("Error depositing into strategy", "err", err)
-	}
-	o.logger.Infof("Deposited %s into strategy %s", amount, mockTokenStrategyAddr)
+	// err = o.DepositIntoStrategy(mockTokenStrategyAddr, amount)
+	// if err != nil {
+	// 	o.logger.Fatal("Error depositing into strategy", "err", err)
+	// }
+	// o.logger.Infof("Deposited %s into strategy %s", amount, mockTokenStrategyAddr)
 
-	err = o.RegisterForOperatorSets(
+	err := o.RegisterForOperatorSets(
 		registryAddr,
 		avsAddress,
 		operatorSetsIds,
@@ -129,6 +129,24 @@ func (o *Operator) RegisterForOperatorSets(
 	socket string,
 	operatorEcdsaKeyPair *ecdsa.PrivateKey,
 ) error {
+
+o.logger.Infof("RegisterForOperatorSets called with arguments:\n"+
+	"  registryAddr: %s\n"+
+	"  avsAddress: %s\n"+
+	"  operatorSetIds: %v\n"+
+	"  waitForReceipt: %v\n"+
+	"  blsKeyPair.PublicKey: %s\n"+
+	"  socket: %s\n"+
+	"  operatorEcdsaKeyPair.PublicKey: %x",
+	registryAddr.Hex(),
+	avsAddress.Hex(),
+	operatorSetIds,
+	waitForReceipt,
+	blsKeyPair.PubKey.String(), // assuming it implements Stringer; otherwise customize
+	socket,
+	crypto.FromECDSAPub(&operatorEcdsaKeyPair.PublicKey),
+)
+
 	operatorAddress := crypto.PubkeyToAddress(operatorEcdsaKeyPair.PublicKey)
 
 	registrationRequest := elcontracts.RegistrationRequest{

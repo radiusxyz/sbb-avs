@@ -169,43 +169,46 @@ library IncredibleSquaringDeploymentLib {
         pausers[1] = admin;
         PauserRegistry pausercontract = new PauserRegistry(pausers, admin);
 
-        IStrategy[] memory deployedStrategyArray = new IStrategy[](1);
-        deployedStrategyArray[0] = IStrategy(strategy);
-        uint256 numStrategies = deployedStrategyArray.length;
+        // I commented out the following code because it is not used in the current deployment.
+        // This code is actually moved to CreateQuorum.s.sol
 
-        uint256 numQuorums = isConfig.numQuorums;
-        ISlashingRegistryCoordinatorTypes.OperatorSetParam[] memory quorumsOperatorSetParams =
-            new ISlashingRegistryCoordinatorTypes.OperatorSetParam[](numQuorums);
-        uint256[] memory operator_params = isConfig.operatorParams;
+        // IStrategy[] memory deployedStrategyArray = new IStrategy[](1);
+        // deployedStrategyArray[0] = IStrategy(strategy);
+        // uint256 numStrategies = deployedStrategyArray.length;
 
-        for (uint256 i = 0; i < numQuorums; i++) {
-            quorumsOperatorSetParams[i] = ISlashingRegistryCoordinatorTypes.OperatorSetParam({
-                maxOperatorCount: uint32(operator_params[i]),
-                kickBIPsOfOperatorStake: uint16(operator_params[i + 1]),
-                kickBIPsOfTotalStake: uint16(operator_params[i + 2])
-            });
-        }
-        // // set to 0 for every quorum
-        IStakeRegistryTypes.StrategyParams[][] memory quorumsStrategyParams =
-            new IStakeRegistryTypes.StrategyParams[][](numQuorums);
-        for (uint256 i = 0; i < numQuorums; i++) {
-            quorumsStrategyParams[i] = new IStakeRegistryTypes.StrategyParams[](numStrategies);
-            for (uint256 j = 0; j < numStrategies; j++) {
-                quorumsStrategyParams[i][j] = IStakeRegistryTypes.StrategyParams({
-                    strategy: deployedStrategyArray[j],
-                    // setting this to 1 ether since the divisor is also 1 ether
-                    // therefore this allows an operator to register with even just 1 token
-                    // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
-                    //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
-                    multiplier: 1 ether
-                });
-            }
-        }
+        // uint256 numQuorums = isConfig.numQuorums;
+        // ISlashingRegistryCoordinatorTypes.OperatorSetParam[] memory quorumsOperatorSetParams =
+        //     new ISlashingRegistryCoordinatorTypes.OperatorSetParam[](numQuorums);
+        // uint256[] memory operator_params = isConfig.operatorParams;
 
-        IStakeRegistryTypes.StakeType[] memory stake_type = new IStakeRegistryTypes.StakeType[](1);
-        stake_type[0] = IStakeRegistryTypes.StakeType.TOTAL_SLASHABLE;
-        uint32[] memory look_ahead_period = new uint32[](1);
-        look_ahead_period[0] = 0;
+        // for (uint256 i = 0; i < numQuorums; i++) {
+        //     quorumsOperatorSetParams[i] = ISlashingRegistryCoordinatorTypes.OperatorSetParam({
+        //         maxOperatorCount: uint32(operator_params[i]),
+        //         kickBIPsOfOperatorStake: uint16(operator_params[i + 1]),
+        //         kickBIPsOfTotalStake: uint16(operator_params[i + 2])
+        //     });
+        // }
+        // // // set to 0 for every quorum
+        // IStakeRegistryTypes.StrategyParams[][] memory quorumsStrategyParams =
+        //     new IStakeRegistryTypes.StrategyParams[][](numQuorums);
+        // for (uint256 i = 0; i < numQuorums; i++) {
+        //     quorumsStrategyParams[i] = new IStakeRegistryTypes.StrategyParams[](numStrategies);
+        //     for (uint256 j = 0; j < numStrategies; j++) {
+        //         quorumsStrategyParams[i][j] = IStakeRegistryTypes.StrategyParams({
+        //             strategy: deployedStrategyArray[j],
+        //             // setting this to 1 ether since the divisor is also 1 ether
+        //             // therefore this allows an operator to register with even just 1 token
+        //             // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
+        //             //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
+        //             multiplier: 1 ether
+        //         });
+        //     }
+        // }
+
+        // IStakeRegistryTypes.StakeType[] memory stake_type = new IStakeRegistryTypes.StakeType[](1);
+        // stake_type[0] = IStakeRegistryTypes.StakeType.TOTAL_SLASHABLE;
+        // uint32[] memory look_ahead_period = new uint32[](1);
+        // look_ahead_period[0] = 0;
         bytes memory upgradeCall = abi.encodeCall(
             SlashingRegistryCoordinator.initialize,
             (admin, admin, admin, 0, result.incredibleSquaringServiceManager)
