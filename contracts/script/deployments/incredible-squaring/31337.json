@@ -1,18 +1,1 @@
-{
-  "lastUpdate": { "timestamp": "1750030275", "block_number": "18" },
-  "addresses": {
-    "proxyAdmin": "0x9d4454b023096f34b160d6b654540c56a1f81688",
-    "incredibleSquaringServiceManager": "0x809d550fca64d94bd9f66e60752a544199cfac3d",
-    "incredibleSquaringServiceManagerImpl": "0xdc11f7e700a4c898ae5caddb1082cffa76512add",
-    "incredibleSquaringTaskManager": "0xb7278a61aa25c888815afc32ad3cc52ff24fe575",
-    "registryCoordinator": "0x82e01223d51eb87e16a03e24687edf0f294da6f1",
-    "blsapkRegistry": "0x7969c5ed335650692bc04293b07f5bf2e7a673c0",
-    "indexRegistry": "0xc351628eb244ec633d5f21fbd6621e1a683b1181",
-    "stakeRegistry": "0x1291be112d480055dafd8a610b7d1e203891c274",
-    "operatorStateRetriever": "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
-    "strategy": "0x2b961e3959b79326a8e7f64ef0d2d825707669b5",
-    "pauserRegistry": "0x0000000000000000000000000000000000000000",
-    "token": "0x0e801d84fa97b50751dbf25036d067dcf18858bf",
-    "instantSlasher": "0xb0d4afd8879ed9f52b28595d31b441d079b2ca07"
-  }
-}
+{"lastUpdate":{"timestamp":"1750032101","block_number":"30"},"addresses":{"proxyAdmin":"0x9d4454b023096f34b160d6b654540c56a1f81688","incredibleSquaringServiceManager":"0x809d550fca64d94bd9f66e60752a544199cfac3d","incredibleSquaringServiceManagerImpl":"0xdc11f7e700a4c898ae5caddb1082cffa76512add","incredibleSquaringTaskManager":"0xb7278a61aa25c888815afc32ad3cc52ff24fe575","registryCoordinator":"0x82e01223d51eb87e16a03e24687edf0f294da6f1","blsapkRegistry":"0x7969c5ed335650692bc04293b07f5bf2e7a673c0","indexRegistry":"0xc351628eb244ec633d5f21fbd6621e1a683b1181","stakeRegistry":"0x1291be112d480055dafd8a610b7d1e203891c274","operatorStateRetriever":"0x5eb3bc0a489c5a8288765d2336659ebca68fcd00","strategy":"0x2b961e3959b79326a8e7f64ef0d2d825707669b5","pauserRegistry":"0x0000000000000000000000000000000000000000","token":"0x0e801d84fa97b50751dbf25036d067dcf18858bf","instantSlasher":"0xb0d4afd8879ed9f52b28595d31b441d079b2ca07"}}

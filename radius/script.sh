@@ -334,3 +334,10 @@ send_and_check $SLASHING_REGISTRY_COORDINATOR \
 #   --gas-limit 1000000
 
 # echo "✅ Done. All components deployed and configured successfully."
+
+
+cast send $ALLOCATION_MANAGER_ADDRESS \
+  "registerForOperatorSets(address,(address,uint32[],bytes))" \
+  $OPERATOR_ADDRESS \
+  "($AVS_ADDRESS,[$OPERATOR_SET_IDS],0x$DATA)" \
+  --private-key $PRIVATE_KEY
